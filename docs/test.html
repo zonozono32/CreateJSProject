@@ -1,19 +1,40 @@
 <html>
-  <head>
-    <script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
-    <script>
-      function init() {
-        var stage = new createjs.Stage("demoCanvas");
-        var circle = new createjs.Shape();
-        circle.graphics.beginFill("DeepSkyBlue").drawCircle(0, 0, 50);
-        circle.x = 100;
-        circle.y = 100;
-        stage.addChild(circle);
-        stage.update();
-      }
-    </script>
-  </head>
-  <body onload="init();">
+<head>
+</head>
+<body onload="init();">
     <canvas id="demoCanvas" width="500" height="200"></canvas>
-  </body>
+</body>
+<script src="https://www.gstatic.com/firebasejs/5.8.0/firebase.js"></script>
+<script>
+// Initialize Firebase
+var config = {
+    apiKey: "AIzaSyBj7bNjwBqXHvn9sDw27N4rDgCTVrvvzcQ",
+    authDomain: "gomoku-9f033.firebaseapp.com",
+    databaseURL: "https://gomoku-9f033.firebaseio.com",
+    projectId: "gomoku-9f033",
+    storageBucket: "gomoku-9f033.appspot.com",
+    messagingSenderId: "763292525892"
+};
+firebase.initializeApp(config);
+</script>
+<script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+<script>
+function init() {
+    var stage = new createjs.Stage("demoCanvas");
+    var circle = new createjs.Shape();
+    circle.graphics.beginFill("DeepSkyBlue").drawCircle(0, 0, 50);
+    circle.x = 100;
+    circle.y = 100;
+    stage.addChild(circle);
+    stage.update();
+
+    createjs.Ticker.addEventListener("tick", handleTick);
+
+    function handleTick(){
+        circle.x += 2;
+
+        stage.update();
+    }
+}
+</script>
 </html>

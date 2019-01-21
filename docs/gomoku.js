@@ -63,4 +63,11 @@ class Gomoku {
             this.turn += 1;
         }
     }
+
+    checkStone(x, y) {
+        if(this.field[x][y] == 9) {
+            return true;
+        }
+        return false;
+    }
 }

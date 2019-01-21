@@ -126,22 +126,22 @@
             stoneRef.on('value', function(snapshot) {
                 var i = 0;
                 field.removeAllChildren();
+                gm = new Gomoku;
+
                 if(snapshot.val() == null) {
-                    gm = new Gomoku;
                     t.text = "turn:1\nnext:black";
 
                     return;
                 }
                 for (var stone of snapshot.val()) {
-                    if (isFirst) {
-                        gm.setStone(stone.px, stone.py, null);
-                    }
-                    if (i + 1 == snapshot.val().length) {
-                        emitParticles(stone.cx, stone.cy);
-                    }
-                    drawStone(stone.cx, stone.cy, i % 2 == 0, _isFinish);
-
-                    i += 1;
+                    gm.setStone(stone.px, stone.py, function(x, y, turn, result){
+                        if (i + 1 == snapshot.val().length) {
+                            emitParticles(stone.cx, stone.cy);
+                        }
+                        drawStone(stone.cx, stone.cy, i % 2 == 0, result);
+                        _isFinish = result;
+                        i += 1;
+                    });
                 }
                 if (_isFinish) {
                     if (snapshot.val().length % 2 == 1) {
@@ -165,10 +165,10 @@
                 var y = stage.mouseY;
                 var result = getPositionFromMouse(x, y);
 
-                gm.setStone(result.px, result.py, function(x, y, turn, isFinish) {
-                    _isFinish = isFinish;
-                    firebase.database().ref('stones/' + turn).set(result);
-                });
+                if (gm.checkStone(result.px, result.py)) {
+
+                    firebase.database().ref('stones/' + gm.turn).set(result);
+                }
             }
 
             createjs.Ticker.addEventListener("tick", handleTick);

@@ -2,18 +2,64 @@
 <head>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="css/base.css" />
-    <script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/5.8.0/firebase.js"></script>
     <script>
+        // Initialize Firebase
+        var config = {
+            apiKey: "AIzaSyBj7bNjwBqXHvn9sDw27N4rDgCTVrvvzcQ",
+            authDomain: "gomoku-9f033.firebaseapp.com",
+            databaseURL: "https://gomoku-9f033.firebaseio.com",
+            projectId: "gomoku-9f033",
+            storageBucket: "gomoku-9f033.appspot.com",
+            messagingSenderId: "763292525892"
+        };
+        firebase.initializeApp(config);
+        var database = firebase.database();
+    </script>
+    <script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+    <script src="gomoku.js"></script>
+    <script>
+        var gm = new Gomoku;
+
+        var _isFinish = false;
+        var isFirst = true;
+
+        // パーティクルの大きさ(半径)
+        var size = 1;
+        // 配列でパーティクルを管理します
+        var particles = [];
+        var waves = [];
         // 読み込みが終わってから初期化
         window.addEventListener("load", init);
+        function getPositionFromMouse(x, y) {
+            var result = new Object();
+
+            result.px = Math.ceil(x / 32) - 1;
+            result.py = Math.ceil(y / 32) - 1;
+            result.px = Math.max(0, Math.min(result.px, 18));
+            result.py = Math.max(0, Math.min(result.py, 18));
+            result.cx = result.px * 32 + 16;
+            result.cy = result.py * 32 + 16;
+
+            return result;
+        }
         function init() {
             // ステージを作成
             var stage = new createjs.Stage("myCanvas");
 
             createjs.Ticker.setFPS(30);
 
-            var bmp = new createjs.Bitmap("images/background.jpg");
-            stage.addChild(bmp);
+            var bg = new createjs.Shape();
+            bg.graphics.beginFill("#deb887");
+            bg.graphics.drawRect(0, 0, 608, 608);
+            stage.addChild(bg);
+
+            var t = new createjs.Text("", "24px serif", "#000000");
+            t.x = 630;
+            t.y = 250;
+            t.textBaseline = "center";
+            stage.addChild(t);
 
             for (var i = 0; i < 19; i=i+1) {
                 var line = new createjs.Graphics();
@@ -33,24 +79,206 @@
                 stage.addChild(shape);
             }
 
+            var field = new createjs.Container();
+            stage.addChild(field);
+
+            var guideCircle = new createjs.Shape();
+            guideCircle.graphics.beginFill("DarkRed");
+            guideCircle.graphics.drawCircle(0, 0, 12);
+            stage.addChild(guideCircle);
+
+            function drawStone(x, y, isBlack, isFinish) {
+                // 円の作成
+                var circle = new createjs.Shape();
+                var result = getPositionFromMouse(x, y);
+                if (isBlack) {
+                    circle.graphics.beginFill("#000").drawCircle(x, y, 12);
+                } else {
+                    circle.graphics.beginFill("#ffffff").drawCircle(x, y, 12);
+                }
+                field.addChild(circle);
+            }
+
+            var button = new createjs.Container();
+            button.x = 630;
+            button.y = 350;
+            stage.addChild(button);
+
+            // 座布団を作成
+            var buttonBG = new createjs.Shape();
+            buttonBG.graphics.beginStroke("DarkRed");
+            buttonBG.graphics.setStrokeStyle(2);
+            buttonBG.graphics.beginFill("White");
+            buttonBG.graphics.drawRoundRect(0, 0, 100, 30, 2, 2);
+            button.addChild(buttonBG);
+
+            // ラベルを作成
+            var label = new createjs.Text("Reset", "24px sans-serif", "#563d7c");
+            label.x = 18;
+            label.y = 5;
+            button.addChild(label);
+
+            button.addEventListener("click", function(event){
+                firebase.database().ref('stones').remove();
+            });
+
+            var stoneRef = database.ref('stones');
+            stoneRef.on('value', function(snapshot) {
+                var i = 0;
+                field.removeAllChildren();
+                if(snapshot.val() == null) {
+                    gm = new Gomoku;
+                    t.text = "turn:1\nnext:black";
+
+                    return;
+                }
+                for (var stone of snapshot.val()) {
+                    if (isFirst) {
+                        gm.setStone(stone.px, stone.py, null);
+                    }
+                    if (i + 1 == snapshot.val().length) {
+                        emitParticles(stone.cx, stone.cy);
+                    }
+                    drawStone(stone.cx, stone.cy, i % 2 == 0, _isFinish);
+
+                    i += 1;
+                }
+                if (_isFinish) {
+                    if (snapshot.val().length % 2 == 1) {
+                        text = "Black Player\nWon !"
+                    } else {
+                        text = "White Player\nWon !"
+                    }
+                    t.text = text;
+                } else {
+                    t.text = "turn:" + (snapshot.val().length + 1) + "\nnext:" + (snapshot.val().length % 2 == 0 ? "black" : "white");
+                }
+
+                isFirst = false;
+            });
+
             // 各種マウスイベントを登録する
-            stage.addEventListener("click", handleClickEvent);
+            bg.addEventListener("click", handleClickEvent);
             // クリックしたとき
             function handleClickEvent(event){
-                // 円の作成
-                // var circle = new createjs.Shape();
-                // circle.graphics.beginFill("DarkRed").drawCircle(100, 100, 80);
-                // stage.addChild(circle);
-                alert("test");
+                var x = stage.mouseX;
+                var y = stage.mouseY;
+                var result = getPositionFromMouse(x, y);
+
+                gm.setStone(result.px, result.py, function(x, y, turn, isFinish) {
+                    _isFinish = isFinish;
+                    firebase.database().ref('stones/' + turn).set(result);
+                });
             }
-            createjs.Ticker.on("tick", function () {
-                // Stageの描画を更新します
+
+            createjs.Ticker.addEventListener("tick", handleTick);
+
+            function handleTick(event){
+                var x = stage.mouseX;
+                var y = stage.mouseY;
+                var result = getPositionFromMouse(x, y);
+
+                guideCircle.x = result.cx;
+                guideCircle.y = result.cy;
+
+                // パーティクルを更新
+                updateParticles();
+
+                // // Stageの描画を更新します
                 stage.update();
-            });
+            }
+
+            function emitParticles(x, y) {
+                // パーティクルの生成
+                for (var i = 0; i < 30; i++) {
+                    // オブジェクトの作成
+                    var particle = new createjs.Shape();
+                    particle.graphics
+                    .beginFill("#ffd700")
+                    .drawCircle(0, 0, size);
+                    stage.addChild(particle);
+                    // パーティクルの発生場所
+                    particle.x = x;
+                    particle.y = y;
+                    // 動的にプロパティーを追加します。
+                    // 速度
+                    particle.vx = 50 * (Math.random() - 0.5);
+                    particle.vy = 50 * (Math.random() - 0.5);
+                    // 寿命
+                    particle.life = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy) / 3;
+
+                    particle.scaleX = 20.0;
+                    particle.rotation = Math.atan(particle.vy / particle.vx) / Math.PI * 180;
+
+                    particles.push(particle);
+                }
+
+                for (var i = 0; i < 1; i++) {
+                    // オブジェクトの作成
+                    var particle = new createjs.Shape();
+                    particle.graphics
+                    .beginFill("#222")
+                    .drawCircle(0, 0, 10);
+                    stage.addChild(particle);
+                    // パーティクルの発生場所
+                    particle.x = x;
+                    particle.y = y;
+
+                    // 寿命
+                    particle.life = 10;
+
+                    particle.alpha = 0.5;
+
+                    waves.push(particle);
+                }
+            }
+
+            function updateParticles() {
+                // パーティクルの計算を行う
+                for (var i = 0; i < particles.length; i++) {
+                    // オブジェクトの作成
+                    var particle = particles[i];
+
+                    // 摩擦
+                    particle.vx *= 0.98;
+                    particle.vy *= 0.98;
+                    // 速度を位置に適用
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    // 地面
+                    if (particle.y > stage.canvas.height - size) {
+                        particle.y = stage.canvas.height - size; // 行き過ぎ補正
+                        particle.vy *= -1; // Y軸の速度を反転
+                    }
+                    // 寿命を減らす
+                    particle.life -= 1;
+                    // 寿命の判定
+                    if (particle.life <= 0) {
+                        // ステージから削除
+                        stage.removeChild(particle);
+                        // 配列からも削除
+                        particles.splice(i, 1);
+                    }
+                }
+
+                for (var i = 0; i < waves.length; i++) {
+                    var wave = waves[i];
+
+                    wave.scale += 1.0;
+                    wave.alpha -= 0.05;
+                    wave.life -= 1;
+
+                    if (wave.life <= 0) {
+                        stage.removeChild(wave);
+                        waves.splice(i, 1);
+                    }
+                }
+            }
         }
+
     </script>
 </head>
 <body>
-    <canvas id="myCanvas" width="640" height="640"></canvas>
+    <canvas id="myCanvas" width="800" height="640"></canvas>
 </body>
 </html>
